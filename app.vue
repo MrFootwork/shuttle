@@ -7,7 +7,7 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 const products = await $fetch('/api/products')
 console.log(products)
 </script>

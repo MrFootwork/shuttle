@@ -18,6 +18,10 @@
     "vue-router": "^4.5.1"
   },
   "devDependencies": {
+    "@typescript-eslint/eslint-plugin": "^8.32.1",
+    "eslint-config-prettier": "^10.1.5",
+    "eslint-plugin-prettier": "^5.4.0",
+    "prettier": "^3.5.3",
     "prisma": "^6.8.2"
   }
 }
