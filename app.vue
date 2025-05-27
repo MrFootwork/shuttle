@@ -1,13 +1,13 @@
 <template>
   <div>
-    <p>hi</p>
-    <p>{{ products }}</p>
+    <pre>{{ products }}</pre>
     <NuxtRouteAnnouncer />
     <NuxtWelcome />
   </div>
 </template>
 
 <script setup lang="ts">
-const products = await $fetch('/api/products')
-console.log(products)
+const { data } = await useFetch('/api/products')
+const products = computed(() => data.value ?? [])
+console.log(products.value)
 </script>
