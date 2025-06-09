@@ -1,0 +1,92 @@
+#cloud-config
+hostname: shuttle-server
+
+users:
+  - name: 'shuttle'
+    groups: 'sudo,adm'
+    sudo: 'ALL=(ALL) NOPASSWD:ALL'
+    shell: /bin/bash
+    create_home: true
+    ssh_authorized_keys:
+      - 'YOUR_SSH_PUBLIC_KEY_HERE' # Replace with your actual SSH public key
+
+apt_update: true
+apt_upgrade: true
+
+packages:
+  - nginx
+  - git
+  - curl
+  - build-essential
+
+write_files:
+  - path: /etc/nginx/sites-available/nuxt
+    content: |
+      server {
+        listen 80;
+        server_name your.domain.com;  # Replace with your actual domain
+
+        location / {
+          proxy_pass http://localhost:3000;
+          proxy_http_version 1.1;
+          proxy_set_header Upgrade $http_upgrade;
+          proxy_set_header Connection 'upgrade';
+          proxy_set_header Host $host;
+          proxy_cache_bypass $http_upgrade;
+        }
+      }
+
+runcmd:
+  # Install Node
+  - curl -fsSL https://deb.nodesource.com/setup_20.x -o /tmp/nodesource.sh
+  - bash /tmp/nodesource.sh
+  - apt-get install -y nodejs
+
+  # Upgrade npm to latest stable version
+  - npm install -g npm@latest >> /var/log/cloud-init-runcmd.log 2>&1
+
+  # Install PM2 globally
+  - npm install -g pm2 >> /var/log/cloud-init-runcmd.log 2>&1
+
+  # Clone the project as the shuttle user
+  - sudo -u shuttle git clone --branch feature/cloud-init https://github.com/mrfootwork/shuttle /home/shuttle/app >> /var/log/cloud-init-runcmd.log 2>&1
+  - test -d /home/shuttle/app || sudo -u shuttle git clone --branch feature/cloud-init https://github.com/mrfootwork/shuttle /home/shuttle/app
+
+  # Install dependencies and build the project
+  - chown -R shuttle:shuttle /home/shuttle/app>> /var/log/cloud-init-runcmd.log 2>&1
+  - cd /home/shuttle/app && sudo -u shuttle npm install >> /var/log/cloud-init-runcmd.log 2>&1
+  - cd /home/shuttle/app && sudo -u shuttle npm run build  >> /var/log/cloud-init-runcmd.log 2>&1 || true
+
+  # Check if build has completed
+  - ls -la /home/shuttle/app/.output/server/ >> /var/log/cloud-init-runcmd.log 2>&1
+
+  # Create .env file
+  - echo PORT=3000 >> /home/shuttle/app/.env
+  - echo SHADOW_DATABASE_URL=mysql://database-name:password@database-address:port/database-name >> /home/shuttle/app/.env
+  - echo DATABASE_URL=mysql://database-name:password@database-address:port/database-name >> /home/shuttle/app/.env
+
+  # Create Nginx config and enable site
+  - ln -s /etc/nginx/sites-available/nuxt /etc/nginx/sites-enabled/
+  - rm /etc/nginx/sites-enabled/default
+  - systemctl restart nginx
+
+  # HTTPS support in Nginx
+  - apt-get install -y certbot python3-certbot-nginx
+  - certbot --nginx --non-interactive --agree-tos --email your@mail.com -d your.domain.com
+
+  # Start the Nuxt app with PM2 as the shuttle user
+  - cd /home/shuttle/app
+  - sudo -u shuttle bash -c 'cd /home/shuttle/app && set -a && source .env && set +a && pm2 start .output/server/index.mjs --name shuttle'
+
+  # Restrict logs to grow infinitely
+  - sudo -u shuttle pm2 install pm2-logrotate
+  - sudo -u shuttle pm2 set pm2-logrotate:max_size 10M
+  - sudo -u shuttle pm2 set pm2-logrotate:retain 5
+  - sudo -u shuttle pm2 set pm2-logrotate:compress true
+  - sudo -u shuttle pm2 set pm2-logrotate:workerInterval 30
+  - sudo -u shuttle pm2 set pm2-logrotate:rotateInterval '0 0 * * *'
+  - sudo -u shuttle pm2 save
+
+  # Set up PM2 to start on boot for the shuttle user
+  - sudo -u shuttle pm2 startup systemd -u shuttle --hp /home/shuttle
+  - sudo -u shuttle pm2 save
