@@ -1,6 +1,7 @@
 <template>
   <div>
     <pre>{{ products }}</pre>
+    <p>CI/DI works!</p>
     <NuxtRouteAnnouncer />
     <NuxtWelcome />
   </div>
