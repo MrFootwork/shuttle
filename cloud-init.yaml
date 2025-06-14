@@ -9,6 +9,7 @@ users:
     create_home: true
     ssh_authorized_keys:
       - 'YOUR_SSH_PUBLIC_KEY_HERE' # Replace with your actual SSH public key
+      - 'YOUR_SSH_PUBLIC_KEY_HERE' # Replace with your GitHub@CI SSH public key
 
 apt_update: true
 apt_upgrade: true
@@ -49,8 +50,7 @@ runcmd:
   - npm install -g pm2 >> /var/log/cloud-init-runcmd.log 2>&1
 
   # Clone the project as the shuttle user
-  - sudo -u shuttle git clone --branch feature/cloud-init https://github.com/mrfootwork/shuttle /home/shuttle/app >> /var/log/cloud-init-runcmd.log 2>&1
-  - test -d /home/shuttle/app || sudo -u shuttle git clone --branch feature/cloud-init https://github.com/mrfootwork/shuttle /home/shuttle/app
+  - sudo -u shuttle git clone https://github.com/mrfootwork/shuttle /home/shuttle/app >> /var/log/cloud-init-runcmd.log 2>&1
 
   # Install dependencies and build the project
   - chown -R shuttle:shuttle /home/shuttle/app>> /var/log/cloud-init-runcmd.log 2>&1
